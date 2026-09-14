@@ -52,7 +52,9 @@ The installed copy lives in the active profile's native plugin directory:
 `$HERMES_HOME/plugins/git-ai/`.
 
 ```bash
-hermes plugins enable git-ai
+git clone https://github.com/LikelyLucid/hermes-git-ai.git \
+  "${HERMES_HOME:-$HOME/.hermes}/plugins/git-ai"
+hermes plugins enable git-ai --no-allow-tool-override
 hermes plugins doctor git-ai
 hermes plugins list --enabled --user --plain
 ```
