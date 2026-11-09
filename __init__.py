@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import uuid
 from pathlib import Path
@@ -217,25 +218,23 @@ def _repo_root(path: Path) -> str | None:
         cached = _REPO_CACHE.get(cache_key)
     if cached:
         return cached
-
     try:
-        completed = subprocess.run(
-            ["git", "-C", os.fspath(candidate), "rev-parse", "--show-toplevel"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
+        # A file does not wait for descendants to close inherited stdout.
+        with tempfile.TemporaryFile(mode="w+t", encoding="utf-8", errors="surrogateescape") as output:
+            completed = subprocess.run(
+                ["git", "-C", os.fspath(candidate), "rev-parse", "--show-toplevel"],
+                stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.DEVNULL,
+                timeout=2, check=False,
+            )
+            if completed.returncode != 0:
+                return None
+            output.seek(0)
+            root = output.read().strip()
+    except (OSError, UnicodeError, subprocess.SubprocessError):
         return None
-    if completed.returncode != 0:
-        return None
-
-    root = completed.stdout.strip()
     if not root:
         return None
-    root = os.path.abspath(os.path.expanduser(root))
+    root = os.path.normpath(root)
     with _LOCK:
         _REPO_CACHE[cache_key] = root
     return root
